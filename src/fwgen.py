@@ -58,8 +58,7 @@ class FwGen(object):
             for chain in chains:
                 yield self.get_new_chain_rule(table, chain)
 
-        for rule in self.get_rules(rules):
-            yield rule
+        yield from self.get_rules(rules)
 
     @staticmethod
     def get_rules(rules):
@@ -92,19 +91,21 @@ class FwGen(object):
     def expand_zones(self, rule):
         zone_pattern = re.compile(r'^(.+?\s)%\{(.+?)\}(\s.+)$')
         match = re.search(zone_pattern, rule)
+
         if match:
             zone = match.group(2)
             for interface in self.config['zones'][zone]['interfaces']:
-                self.expand_zones('%s%s%s' % (match.group(1), interface, match.group(3)))
+                rule_expanded = '%s%s%s' % (match.group(1), interface, match.group(3))
+                yield from self.expand_zones(rule_expanded)
         else:
-            return rule
+            yield rule
 
     def print_rules(self, rules):
         for table in VALID_CHAINS:
             output = []
             for rule_table, rule in rules:
                 if rule_table == table:
-                    output.append(self.expand_zones(rule))
+                    output.extend(self.expand_zones(rule))
 
             if output:
                 print('*%s' % table)
