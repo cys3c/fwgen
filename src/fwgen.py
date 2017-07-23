@@ -7,7 +7,7 @@ import re
 import yaml
 
 
-VALID_CHAINS = {
+DEFAULT_CHAINS = {
     'filter': ['INPUT', 'FORWARD', 'OUTPUT'],
     'nat': ['PREROUTING', 'INPUT', 'OUTPUT', 'POSTROUTING'],
     'mangle': ['PREROUTING', 'INPUT', 'FORWARD', 'OUTPUT', 'POSTROUTING'],
@@ -21,13 +21,13 @@ class FwGen(object):
         self.config = config
 
     def get_policy_rules(self, inet_family):
-        try:
-            rules = self.config['policies'][inet_family]
-        except KeyError:
-            rules = {}
+        for table, chains in DEFAULT_CHAINS.items():
+            for chain in chains:
+                try:
+                    policy = self.config['policies'][inet_family][table][chain]
+                except KeyError:
+                    policy = 'ACCEPT'
 
-        for table, chains in rules.items():
-            for chain, policy in chains.items():
                 yield (table, ':%s %s' % (chain, policy))
 
     def get_zone_rules(self, inet_family):
@@ -100,18 +100,38 @@ class FwGen(object):
         else:
             yield rule
 
-    def print_rules(self, rules):
-        for table in VALID_CHAINS:
-            output = []
+    def output_rules(self, rules):
+        for table in DEFAULT_CHAINS:
+            yield '*%s' % table
             for rule_table, rule in rules:
                 if rule_table == table:
-                    output.extend(self.expand_zones(rule))
+                    yield from self.expand_zones(rule)
+            yield 'COMMIT'
 
-            if output:
-                print('*%s' % table)
-                for line in output:
-                    print(line)
-                print('COMMIT')
+    def commit(self):
+        iptables = []
+        ip6tables = []
+
+        iptables.extend(self.get_policy_rules('v4'))
+        ip6tables.extend(self.get_policy_rules('v6'))
+
+        iptables.extend(self.get_default_rules('v4'))
+        ip6tables.extend(self.get_default_rules('v6'))
+
+        iptables.extend(self.get_helper_chains('v4'))
+        ip6tables.extend(self.get_helper_chains('v6'))
+
+        iptables.extend(self.get_zone_dispatchers('v4'))
+        ip6tables.extend(self.get_zone_dispatchers('v6'))
+
+        iptables.extend(self.get_zone_rules('v4'))
+        ip6tables.extend(self.get_zone_rules('v6'))
+
+        for i in self.output_rules(iptables):
+            print(i)
+        for i in self.output_rules(ip6tables):
+            print(i)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -126,27 +146,7 @@ def main():
         config = yaml.load(f)
 
     fw = FwGen(config)
-
-    iptables = []
-    ip6tables = []
-
-    iptables.extend(fw.get_policy_rules('v4'))
-    ip6tables.extend(fw.get_policy_rules('v6'))
-
-    iptables.extend(fw.get_default_rules('v4'))
-    ip6tables.extend(fw.get_default_rules('v6'))
-
-    iptables.extend(fw.get_helper_chains('v4'))
-    ip6tables.extend(fw.get_helper_chains('v6'))
-
-    iptables.extend(fw.get_zone_dispatchers('v4'))
-    ip6tables.extend(fw.get_zone_dispatchers('v6'))
-
-    iptables.extend(fw.get_zone_rules('v4'))
-    ip6tables.extend(fw.get_zone_rules('v6'))
-
-    fw.print_rules(iptables)
-    fw.print_rules(ip6tables)
+    fw.commit()
 
 if __name__ == '__main__':
     sys.exit(main())
