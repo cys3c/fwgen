@@ -138,7 +138,7 @@ def main():
     parser.add_argument('--config', metavar='PATH', help='Path to config file')
     args = parser.parse_args()
 
-    config_yaml = '/etc/fw-gen/config.yml'
+    config_yaml = '/etc/fwgen/config.yml'
     if args.config:
         config_yaml = args.config
 
