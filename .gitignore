@@ -1,2 +1,5 @@
 src/config.yml
 venv/
+**/__pycache__/
+.cache/
+.coverage
