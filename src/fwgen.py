@@ -76,15 +76,15 @@ class FwGen(object):
                 yield (table, ':%s %s' % (chain, policy))
 
     def get_zone_rules(self, family):
-        for zone, params in self.config['zones'].items():
-            try:
-                for table, chains in params['rules'][family].items():
-                    for chain, chain_rules in chains.items():
-                        zone_chain = '%s_%s' % (zone, chain)
-                        for rule in chain_rules:
-                            yield (table, '-A %s %s' % (zone_chain, rule))
-            except KeyError:
+        for zone, params in self.config.get('zones', {}).items():
+            if 'rules' not in params:
                 continue
+
+            for table, chains in params['rules'].get(family, {}).items():
+                for chain, chain_rules in chains.items():
+                    zone_chain = '%s_%s' % (zone, chain)
+                    for rule in chain_rules:
+                        yield (table, '-A %s %s' % (zone_chain, rule))
 
     def get_default_rules(self, family):
         try:
@@ -117,21 +117,21 @@ class FwGen(object):
         return (table, ':%s -' % chain)
 
     def get_zone_dispatchers(self, family):
-        for zone, params in self.config['zones'].items():
-            try:
-                for table, chains in params['rules'][family].items():
-                    for chain in chains:
-                        dispatcher_chain = '%s_%s' % (zone, chain)
-                        yield self.get_new_chain_rule(table, dispatcher_chain)
-
-                        if chain in ['PREROUTING', 'INPUT', 'FORWARD']:
-                            yield (table, '-A %s -i %%{%s} -j %s' % (chain, zone, dispatcher_chain))
-                        elif chain in ['OUTPUT', 'POSTROUTING']:
-                            yield (table, '-A %s -o %%{%s} -j %s' % (chain, zone, dispatcher_chain))
-                        else:
-                            raise Exception('%s is not a valid default chain' % chain)
-            except KeyError:
+        for zone, params in self.config.get('zones', {}).items():
+            if 'rules' not in params:
                 continue
+
+            for table, chains in params['rules'].get(family, {}).items():
+                for chain in chains:
+                    dispatcher_chain = '%s_%s' % (zone, chain)
+                    yield self.get_new_chain_rule(table, dispatcher_chain)
+
+                    if chain in ['PREROUTING', 'INPUT', 'FORWARD']:
+                        yield (table, '-A %s -i %%{%s} -j %s' % (chain, zone, dispatcher_chain))
+                    elif chain in ['OUTPUT', 'POSTROUTING']:
+                        yield (table, '-A %s -o %%{%s} -j %s' % (chain, zone, dispatcher_chain))
+                    else:
+                        raise Exception('%s is not a valid default chain' % chain)
 
     def expand_zones(self, rule):
         zone_pattern = re.compile(r'^(.+?\s)%\{(.+?)\}(\s.+)$')
