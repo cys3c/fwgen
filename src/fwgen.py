@@ -8,33 +8,38 @@ import subprocess
 import yaml
 
 
-DEFAULT_CHAINS = {
+DEFAULT_CHAINS_IP = {
     'filter': ['INPUT', 'FORWARD', 'OUTPUT'],
     'nat': ['PREROUTING', 'INPUT', 'OUTPUT', 'POSTROUTING'],
     'mangle': ['PREROUTING', 'INPUT', 'FORWARD', 'OUTPUT', 'POSTROUTING'],
     'raw': ['PREROUTING', 'OUTPUT'],
     'security': ['INPUT', 'FORWARD', 'OUTPUT']
 }
+DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
 
 
 class FwGen(object):
     def __init__(self, config):
         self.config = config
 
-    def get_policy_rules(self, inet_family):
-        for table, chains in DEFAULT_CHAINS.items():
+    def get_policy_rules(self, family):
+        default_chains = {
+            'ip': DEFAULT_CHAINS_IP,
+            'ip6': DEFAULT_CHAINS_IP6
+        }
+
+        for table, chains in default_chains[family].items():
             for chain in chains:
                 try:
-                    policy = self.config['policies'][inet_family][table][chain]
+                    policy = self.config['policies'][family][table][chain]
                 except KeyError:
                     policy = 'ACCEPT'
-
                 yield (table, ':%s %s' % (chain, policy))
 
-    def get_zone_rules(self, inet_family):
+    def get_zone_rules(self, family):
         for zone, params in self.config['zones'].items():
             try:
-                for table, chains in params['rules'][inet_family].items():
+                for table, chains in params['rules'][family].items():
                     for chain, chain_rules in chains.items():
                         zone_chain = '%s_%s' % (zone, chain)
                         for rule in chain_rules:
@@ -42,16 +47,16 @@ class FwGen(object):
             except KeyError:
                 continue
 
-    def get_default_rules(self, inet_family):
+    def get_default_rules(self, family):
         try:
-            rules = self.config['defaults']['rules'][inet_family]
+            rules = self.config['defaults']['rules'][family]
         except KeyError:
             rules = {}
         return self.get_rules(rules)
 
-    def get_helper_chains(self, inet_family):
+    def get_helper_chains(self, family):
         try:
-            rules = self.config['helper_chains'][inet_family]
+            rules = self.config['helper_chains'][family]
         except KeyError:
             rules = {}
 
@@ -72,10 +77,10 @@ class FwGen(object):
     def get_new_chain_rule(table, chain):
         return (table, ':%s -' % chain)
 
-    def get_zone_dispatchers(self, inet_family):
+    def get_zone_dispatchers(self, family):
         for zone, params in self.config['zones'].items():
             try:
-                for table, chains in params['rules'][inet_family].items():
+                for table, chains in params['rules'][family].items():
                     for chain in chains:
                         dispatcher_chain = '%s_%s' % (zone, chain)
                         yield self.get_new_chain_rule(table, dispatcher_chain)
@@ -95,62 +100,62 @@ class FwGen(object):
 
         if match:
             zone = match.group(2)
+
             for interface in self.config['zones'][zone]['interfaces']:
                 rule_expanded = '%s%s%s' % (match.group(1), interface, match.group(3))
                 yield from self.expand_zones(rule_expanded)
         else:
             yield rule
 
-    def output_rules(self, rules):
-        for table in DEFAULT_CHAINS:
+    def output_rules(self, rules, family):
+        default_chains = {
+            'ip': DEFAULT_CHAINS_IP,
+            'ip6': DEFAULT_CHAINS_IP6
+        }
+
+        for table in default_chains[family]:
             yield '*%s' % table
+
             for rule_table, rule in rules:
                 if rule_table == table:
                     yield from self.expand_zones(rule)
+
             yield 'COMMIT'
 
     @staticmethod
-    def save_rules(path, inet_family):
+    def save_rules(path, family):
         cmd = {
-            'v4': ['iptables-save'],
-            'v6': ['ip6tables-save']
+            'ip': ['iptables-save'],
+            'ip6': ['ip6tables-save']
         }
+
         with open(path, 'wb') as f:
-            subprocess.run(cmd[inet_family], stdout=f)
+            subprocess.run(cmd[family], stdout=f)
 
     @staticmethod
-    def apply_rules(rules, inet_family):
+    def apply_rules(rules, family):
         cmd = {
-            'v4': ['iptables-restore'],
-            'v6': ['ip6tables-restore']
+            'ip': ['iptables-restore'],
+            'ip6': ['ip6tables-restore']
         }
         stdin = ('%s\n' % '\n'.join(rules)).encode('utf-8')
-        subprocess.run(cmd[inet_family], input=stdin)
+        subprocess.run(cmd[family], input=stdin)
 
     def commit(self):
-        iptables = []
-        ip6tables = []
+        save = {
+            'ip': '/etc/iptables.restore',
+            'ip6': '/etc/ip6tables.restore'
+        }
 
-        iptables.extend(self.get_policy_rules('v4'))
-        ip6tables.extend(self.get_policy_rules('v6'))
-
-        iptables.extend(self.get_default_rules('v4'))
-        ip6tables.extend(self.get_default_rules('v6'))
-
-        iptables.extend(self.get_helper_chains('v4'))
-        ip6tables.extend(self.get_helper_chains('v6'))
-
-        iptables.extend(self.get_zone_dispatchers('v4'))
-        ip6tables.extend(self.get_zone_dispatchers('v6'))
-
-        iptables.extend(self.get_zone_rules('v4'))
-        ip6tables.extend(self.get_zone_rules('v6'))
-
-        self.apply_rules(self.output_rules(iptables), 'v4')
-        self.apply_rules(self.output_rules(ip6tables), 'v6')
-
-        self.save_rules('/etc/iptables.restore', 'v4')
-        self.save_rules('/etc/ip6tables.restore', 'v6')
+        for family in ['ip', 'ip6']:
+            rules = []
+            rules.extend(self.get_policy_rules(family))
+            rules.extend(self.get_default_rules(family))
+            rules.extend(self.get_helper_chains(family))
+            rules.extend(self.get_zone_dispatchers(family))
+            rules.extend(self.get_zone_rules(family))
+            self.apply_rules(self.output_rules(rules, family), family)
+            self.save_rules(save[family], family)
 
 
 def main():
