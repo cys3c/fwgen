@@ -110,6 +110,15 @@ class FwGen(object):
             yield 'COMMIT'
 
     @staticmethod
+    def save_rules(path, inet_family):
+        cmd = {
+            'v4': ['iptables-save'],
+            'v6': ['ip6tables-save']
+        }
+        with open(path, 'wb') as f:
+            subprocess.run(cmd[inet_family], stdout=f)
+
+    @staticmethod
     def apply_rules(rules, inet_family):
         cmd = {
             'v4': ['iptables-restore'],
@@ -140,8 +149,8 @@ class FwGen(object):
         self.apply_rules(self.output_rules(iptables), 'v4')
         self.apply_rules(self.output_rules(ip6tables), 'v6')
 
-        #for i in self.output_rules(ip6tables):
-        #    print(i)
+        self.save_rules('/etc/iptables.restore', 'v4')
+        self.save_rules('/etc/ip6tables.restore', 'v6')
 
 
 def main():
