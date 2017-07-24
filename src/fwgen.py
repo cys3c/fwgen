@@ -18,11 +18,8 @@ DEFAULT_CHAINS_IP = {
     'security': ['INPUT', 'FORWARD', 'OUTPUT']
 }
 DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
-CONFIG = '/etc/fwgen/config.yml'
-DEFAULTS = '/etc/fwgen/defaults.yml'
-IPTABLES_RESTORE = '/etc/iptables.restore'
-IP6TABLES_RESTORE = '/etc/ip6tables.restore'
-IPSETS_RESTORE = '/etc/ipsets.restore'
+CONFIG = b'/etc/fwgen/config.yml'
+DEFAULTS = b'/etc/fwgen/defaults.yml'
 TIMEOUT=30
 
 
@@ -33,10 +30,18 @@ class FwGen(object):
             'ip': DEFAULT_CHAINS_IP,
             'ip6': DEFAULT_CHAINS_IP6
         }
+
+        etc = b'/etc'
+        netns = self.get_netns()
+
+        if netns:
+            etc = b'/etc/netns/%s' % netns
+            os.makedirs(etc, exist_ok=True)
+
         self.restore_file = {
-            'ip': IPTABLES_RESTORE,
-            'ip6': IP6TABLES_RESTORE,
-            'ipset': IPSETS_RESTORE
+            'ip': b'%s/iptables.restore' % etc,
+            'ip6': b'%s/ip6tables.restore' % etc,
+            'ipset': b'%s/ipsets.restore' % etc
         }
         self.restore_cmd = {
             'ip': ['iptables-restore'],
@@ -47,6 +52,11 @@ class FwGen(object):
             'ip': ['iptables-save'],
             'ip6': ['ip6tables-save']
         }
+
+    @staticmethod
+    def get_netns():
+        output = subprocess.run(['ip', 'netns', 'identify'], stdout=subprocess.PIPE)
+        return output.stdout.strip()
 
     def output_ipsets(self, reset=False):
         ipset_family_map = {
