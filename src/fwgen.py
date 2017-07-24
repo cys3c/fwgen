@@ -129,6 +129,15 @@ class FwGen(object):
         with open(path, 'wb') as f:
             subprocess.run(cmd[family], stdout=f)
 
+    def save(self):
+        save = {
+            'ip': IPTABLES_SAVE,
+            'ip6': IP6TABLES_SAVE
+        }
+
+        for family in ['ip', 'ip6']:
+            self.save_rules(save[family], family)
+
     @staticmethod
     def apply_rules(rules, family):
         cmd = {
@@ -138,12 +147,7 @@ class FwGen(object):
         stdin = ('%s\n' % '\n'.join(rules)).encode('utf-8')
         subprocess.run(cmd[family], input=stdin)
 
-    def commit(self):
-        save = {
-            'ip': IPTABLES_SAVE,
-            'ip6': IP6TABLES_SAVE
-        }
-
+    def apply(self):
         for family in ['ip', 'ip6']:
             rules = []
             rules.extend(self.get_policy_rules(family))
@@ -152,8 +156,10 @@ class FwGen(object):
             rules.extend(self.get_zone_dispatchers(family))
             rules.extend(self.get_zone_rules(family))
             self.apply_rules(self.output_rules(rules, family), family)
-            self.save_rules(save[family], family)
 
+    def commit(self):
+        self.apply()
+        self.save()
 
 def main():
     parser = argparse.ArgumentParser()
