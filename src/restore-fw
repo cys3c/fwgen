@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 IPSETS_RESTORE="/etc/ipsets.restore"
 IPTABLES_RESTORE="/etc/iptables.restore"
