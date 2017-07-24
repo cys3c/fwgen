@@ -251,12 +251,10 @@ def main():
     args = parser.parse_args()
 
     user_config = CONFIG
-    defaults = DEFAULTS
-
     if args.config:
         user_config = args.config
 
-    with open(defaults, 'r') as f:
+    with open(DEFAULTS, 'r') as f:
         config = yaml.load(f)
 
     with open(user_config, 'r') as f:
