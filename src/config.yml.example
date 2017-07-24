@@ -1,0 +1,144 @@
+# Example group objects which can be accessed as ipsets in the iptables rules
+#groups:
+#  networks:
+#    servers:
+#      ip:
+#        - 192.168.0.0/24
+#        - 192.168.1.0/24
+#      ip6:
+#        - fd12:3456:789a:1::/64
+#        - fd12:3456:789a:2::/64
+#  hosts:
+#    dns_servers:
+#      ip:
+#        - 4.4.4.4
+#        - 8.8.4.4
+#      ip6:
+#        - 2001:0000:3238:DFE1:63::FEFB
+#        - 2001:0000:3238:DFE1:63::FEFB
+#        - ::ffff:192.0.2.128
+#        - 2001:db8::1
+#    host-1:
+#      ip: 192.168.0.1
+
+
+# You may override the default filter policies of "DROP"
+#policies:
+#  ip:
+#    filter:
+#      INPUT: ACCEPT
+#      FORWARD: ACCEPT
+#      OUTPUT: ACCEPT
+#  ip6:
+#    filter:
+#      INPUT: ACCEPT
+#      FORWARD: ACCEPT
+#      OUTPUT: ACCEPT
+#
+
+#helper_chains:
+#  ip:
+#    filter:
+#      LOG_REJECT:
+#        - '-j LOG --log-level warning --log-prefix "IPTABLES_REJECT: "'
+#        - -j REJECT
+
+#zones:
+#  dmz:
+#    interfaces:
+#      - eth3
+#      - eth4
+#  lan:
+#    interfaces:
+#      - eth0
+#      - eth1
+#    rules:
+#      ip:
+#        filter:
+#          INPUT:
+#            - -p tcp --dport 22 -j ACCEPT
+#            - -p icmp --imcp-type echo-request -j ACCEPT
+#          OUTPUT:
+#            - -j ACCEPT
+#      ip6:
+#        filter:
+#          ...
+
+
+# Complete example for a classic IPv4 two interface gateway with NAT
+# The default policy is DROP for filter table for both IPv4 and IPv6 and
+# ACCEPT for everything else, so an explicit ACCEPT is needed to pass traffic.
+# There is no need to add rules for return traffic as these are added is added
+# at the top of the ruleset via defaults.yml for maximum efficiency.
+#zones:
+#  LAN:
+#    interfaces:
+#      - eth0
+#    rules:
+#      ip:
+#        filter:
+#          INPUT:
+#            - -j ACCEPT
+#          FORWARD:
+#            - -j ACCEPT
+#          OUTPUT:
+#            - -j ACCEPT
+#  WAN:
+#    interfaces:
+#      - eth1
+#    rules:
+#      ip:
+#        filter:
+#          OUTPUT:
+#            - -j ACCEPT
+#        nat:
+#          POSTROUTING:
+#            - -j MASQUERADE
+
+
+# Example with zone to zone rules, ipset groups and port forwarding. Use %{zone_name} whenever
+# you would use interface names in native iptables to automatically generate the
+# needed rules.
+#zones:
+#  LAN:
+#    interfaces:
+#      - eth0
+#    rules:
+#      ip:
+#        filter:
+#          INPUT:
+#            - -j ACCEPT
+#          FORWARD:
+#            - -j ACCEPT
+#          OUTPUT:
+#            - -j ACCEPT
+#  WAN:
+#    interfaces:
+#      - eth1
+#    rules:
+#      ip:
+#        filter:
+#          FORWARD:
+#            - -d 10.0.0.10 -p tcp --dport 80 -j ACCEPT
+#          OUTPUT:
+#            - -j ACCEPT
+#        nat:
+#          PREROUTING:
+#            - -p tcp --dport 80 -j DNAT --to-destination 10.0.0.10
+#          POSTROUTING:
+#            - -j MASQUERADE
+#  DMZ:
+#    interfaces:
+#      - eth2
+#    rules:
+#      ip:
+#        filter:
+#          INPUT:
+#            - -p icmp --imcp-type echo-request -j ACCEPT
+#          FORWARD:
+#            - -o %{WAN} -j ACCEPT
+#          OUTPUT:
+#            - -j ACCEPT
+#        nat:
+#          POSTROUTING:
+#            - -j MASQUERADE
