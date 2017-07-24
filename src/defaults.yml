@@ -1,0 +1,41 @@
+defaults:
+  rules:
+    ip:
+      filter:
+        INPUT:
+          - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+          - -i lo -j ACCEPT
+        FORWARD:
+          - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+        OUTPUT:
+          - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+          - -o lo -j ACCEPT
+    ip6:
+      filter:
+        INPUT:
+          - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+          - -i lo -j ACCEPT
+        FORWARD:
+          - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+        OUTPUT:
+          - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+          - -o lo -j ACCEPT
+
+policies:
+  ip:
+    filter:
+      INPUT: DROP
+      FORWARD: DROP
+      OUTPUT: DROP
+  ip6:
+    filter:
+      INPUT: DROP
+      FORWARD: DROP
+      OUTPUT: DROP
+
+helper_chains:
+  ip:
+    filter:
+      CUSTOM_REJECT:
+        - -p tcp -j REJECT --reject-with tcp-reset
+        - -j REJECT --reject-with icmp-port-unreachable

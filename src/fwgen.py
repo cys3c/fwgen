@@ -17,6 +17,7 @@ DEFAULT_CHAINS_IP = {
 }
 DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
 CONFIG = '/etc/fwgen/config.yml'
+DEFAULTS = '/etc/fwgen/defaults.yml'
 IPTABLES_RESTORE = '/etc/iptables.restore'
 IP6TABLES_RESTORE = '/etc/ip6tables.restore'
 IPSETS_RESTORE = '/etc/ipsets.restore'
@@ -228,6 +229,19 @@ class FwGen(object):
         self.apply_ipsets(self.output_ipsets(reset=True))
 
 
+def dict_merge(d1, d2):
+    """
+    Deep merge d1 into d2
+    """
+    for k, v in d1.items():
+        if isinstance(v, dict):
+            node = d2.setdefault(k, {})
+            dict_merge(v, node)
+        else:
+            d2[k] = v
+
+    return d2
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', metavar='PATH', help='Path to config file')
@@ -236,12 +250,17 @@ def main():
              'use are preventing you from applying the new configuration.')
     args = parser.parse_args()
 
-    config_yaml = CONFIG
-    if args.config:
-        config_yaml = args.config
+    user_config = CONFIG
+    defaults = DEFAULTS
 
-    with open(config_yaml, 'r') as f:
+    if args.config:
+        user_config = args.config
+
+    with open(defaults, 'r') as f:
         config = yaml.load(f)
+
+    with open(user_config, 'r') as f:
+        config = dict_merge(yaml.load(f), config)
 
     fw = FwGen(config)
     if args.with_reset:
