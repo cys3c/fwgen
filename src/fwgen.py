@@ -26,9 +26,6 @@ IPSETS_RESTORE = '/etc/ipsets.restore'
 TIMEOUT=30
 
 
-class TimeoutExpired(Exception):
-    pass
-
 class FwGen(object):
     def __init__(self, config):
         self.config = config
@@ -257,6 +254,9 @@ class FwGen(object):
         self.apply_ipsets(self.output_ipsets(reset=True))
 
 
+class TimeoutExpired(Exception):
+    pass
+
 def alarm_handler(signum, frame):
     raise TimeoutExpired
 
@@ -311,14 +311,13 @@ def main():
     if args.no_confirm:
         fw.commit()
     else:
-        timeout=TIMEOUT
-        print('\nRolling back in %d seconds if not confirmed.\n' % timeout)
+        print('\nRolling back in %d seconds if not confirmed.\n' % TIMEOUT)
         fw.apply()
         message = ('The ruleset has been applied successfully! Press \'Enter\' to make the '
                    'new ruleset persistent.\n')
 
         try:
-            wait_for_input(message, timeout=timeout)
+            wait_for_input(message, TIMEOUT)
             fw.save()
         except (TimeoutExpired, KeyboardInterrupt):
             print('No confirmation received. Rolling back...\n')
