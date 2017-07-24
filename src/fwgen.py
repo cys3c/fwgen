@@ -4,6 +4,8 @@ import argparse
 import sys
 import re
 import subprocess
+import os
+import signal
 
 import yaml
 
@@ -21,7 +23,11 @@ DEFAULTS = '/etc/fwgen/defaults.yml'
 IPTABLES_RESTORE = '/etc/iptables.restore'
 IP6TABLES_RESTORE = '/etc/ip6tables.restore'
 IPSETS_RESTORE = '/etc/ipsets.restore'
+TIMEOUT=30
 
+
+class TimeoutExpired(Exception):
+    pass
 
 class FwGen(object):
     def __init__(self, config):
@@ -29,6 +35,20 @@ class FwGen(object):
         self.default_chains = {
             'ip': DEFAULT_CHAINS_IP,
             'ip6': DEFAULT_CHAINS_IP6
+        }
+        self.restore_file = {
+            'ip': IPTABLES_RESTORE,
+            'ip6': IP6TABLES_RESTORE,
+            'ipset': IPSETS_RESTORE
+        }
+        self.restore_cmd = {
+            'ip': ['iptables-restore'],
+            'ip6': ['ip6tables-restore'],
+            'ipset': ['ipset', 'restore']
+        }
+        self.save_cmd = {
+            'ip': ['iptables-save'],
+            'ip6': ['ip6tables-save']
         }
 
     def output_ipsets(self, reset=False):
@@ -167,40 +187,31 @@ class FwGen(object):
             for item in self.output_ipsets():
                 f.write('%s\n' % item)
 
-    @staticmethod
-    def save_rules(path, family):
-        cmd = {
-            'ip': ['iptables-save'],
-            'ip6': ['ip6tables-save']
-        }
-
+    def save_rules(self, path, family):
         with open(path, 'wb') as f:
-            subprocess.run(cmd[family], stdout=f)
+            subprocess.run(self.save_cmd[family], stdout=f)
 
     def save(self):
-        save = {
-            'ip': IPTABLES_RESTORE,
-            'ip6': IP6TABLES_RESTORE
-        }
-
         for family in ['ip', 'ip6']:
-            self.save_rules(save[family], family)
+            self.save_rules(self.restore_file[family], family)
 
-        self.save_ipsets(IPSETS_RESTORE)
+        self.save_ipsets(self.restore_file['ipset'])
 
-    @staticmethod
-    def apply_rules(rules, family):
-        cmd = {
-            'ip': ['iptables-restore'],
-            'ip6': ['ip6tables-restore']
-        }
+    def apply_rules(self, rules, family):
         stdin = ('%s\n' % '\n'.join(rules)).encode('utf-8')
-        subprocess.run(cmd[family], input=stdin)
+        subprocess.run(self.restore_cmd[family], input=stdin)
 
-    @staticmethod
-    def apply_ipsets(ipsets):
+    def restore_rules(self, path, family):
+        with open(path, 'rb') as f:
+            subprocess.run(self.restore_cmd[family], stdin=f)
+
+    def apply_ipsets(self, ipsets):
         stdin = ('%s\n' % '\n'.join(ipsets)).encode('utf-8')
-        subprocess.run(['ipset', 'restore'], input=stdin)
+        subprocess.run(self.restore_cmd['ipset'], input=stdin)
+
+    def restore_ipsets(self, path):
+        with open(path, 'rb') as f:
+            subprocess.run(self.restore_cmd['ipset'], stdin=f)
 
     def apply(self):
         # Apply ipsets first to ensure they exist when the rules are applied
@@ -219,8 +230,25 @@ class FwGen(object):
         self.apply()
         self.save()
 
-    def reset(self):
+    def rollback(self):
         for family in ['ip', 'ip6']:
+            if os.path.exists(self.restore_file[family]):
+                self.restore_rules(self.restore_file[family], family)
+            else:
+                self.reset(family)
+
+        if os.path.exists(self.restore_file['ipset']):
+            self.restore_ipsets(self.restore_file['ipset'])
+        else:
+            self.apply_ipsets(self.output_ipsets(reset=True))
+
+    def reset(self, family=None):
+        families = ['ip', 'ip6']
+
+        if family:
+            families = [family]
+
+        for family in families:
             rules = []
             rules.extend(self.get_policy_rules(family, reset=True))
             self.apply_rules(self.output_rules(rules, family), family)
@@ -228,6 +256,19 @@ class FwGen(object):
         # Reset ipsets after the rules are removed to ensure ipsets are not in use
         self.apply_ipsets(self.output_ipsets(reset=True))
 
+
+def alarm_handler(signum, frame):
+    raise TimeoutExpired
+
+def wait_for_input(message, timeout):
+    signal.signal(signal.SIGALRM, alarm_handler)
+    signal.alarm(timeout)
+
+    try:
+        return input(message)
+    finally:
+        # Cancel alarm
+        signal.alarm(0)
 
 def dict_merge(d1, d2):
     """
@@ -248,6 +289,8 @@ def main():
     parser.add_argument('--with-reset', action='store_true',
         help='Clear the firewall before reapplying. Recommended only if ipsets in '
              'use are preventing you from applying the new configuration.')
+    parser.add_argument('--no-confirm', action='store_true',
+        help="Don't ask for confirmation before storing ruleset.")
     args = parser.parse_args()
 
     user_config = CONFIG
@@ -261,9 +304,25 @@ def main():
         config = dict_merge(yaml.load(f), config)
 
     fw = FwGen(config)
+
     if args.with_reset:
         fw.reset()
-    fw.commit()
+
+    if args.no_confirm:
+        fw.commit()
+    else:
+        timeout=TIMEOUT
+        print('\nRolling back in %d seconds if not confirmed.\n' % timeout)
+        fw.apply()
+        message = ('The ruleset has been applied successfully! Press \'Enter\' to make the '
+                   'new ruleset persistent.\n')
+
+        try:
+            wait_for_input(message, timeout=timeout)
+            fw.save()
+        except (TimeoutExpired, KeyboardInterrupt):
+            print('No confirmation received. Rolling back...\n')
+            fw.rollback()
 
 if __name__ == '__main__':
     sys.exit(main())
