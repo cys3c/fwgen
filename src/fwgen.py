@@ -3,6 +3,7 @@
 import argparse
 import sys
 import re
+import subprocess
 
 import yaml
 
@@ -108,6 +109,15 @@ class FwGen(object):
                     yield from self.expand_zones(rule)
             yield 'COMMIT'
 
+    @staticmethod
+    def apply_rules(rules, inet_family):
+        cmd = {
+            'v4': ['iptables-restore'],
+            'v6': ['ip6tables-restore']
+        }
+        stdin = ('%s\n' % '\n'.join(rules)).encode('utf-8')
+        subprocess.run(cmd[inet_family], input=stdin)
+
     def commit(self):
         iptables = []
         ip6tables = []
@@ -127,10 +137,11 @@ class FwGen(object):
         iptables.extend(self.get_zone_rules('v4'))
         ip6tables.extend(self.get_zone_rules('v6'))
 
-        for i in self.output_rules(iptables):
-            print(i)
-        for i in self.output_rules(ip6tables):
-            print(i)
+        self.apply_rules(self.output_rules(iptables), 'v4')
+        self.apply_rules(self.output_rules(ip6tables), 'v6')
+
+        #for i in self.output_rules(ip6tables):
+        #    print(i)
 
 
 def main():
