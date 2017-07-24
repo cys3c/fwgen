@@ -16,6 +16,9 @@ DEFAULT_CHAINS_IP = {
     'security': ['INPUT', 'FORWARD', 'OUTPUT']
 }
 DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
+CONFIG = '/etc/fwgen/config.yml'
+IPTABLES_SAVE = '/etc/iptables.restore'
+IP6TABLES_SAVE = '/etc/ip6tables.restore'
 
 
 class FwGen(object):
@@ -137,8 +140,8 @@ class FwGen(object):
 
     def commit(self):
         save = {
-            'ip': '/etc/iptables.restore',
-            'ip6': '/etc/ip6tables.restore'
+            'ip': IPTABLES_SAVE,
+            'ip6': IP6TABLES_SAVE
         }
 
         for family in ['ip', 'ip6']:
@@ -157,7 +160,7 @@ def main():
     parser.add_argument('--config', metavar='PATH', help='Path to config file')
     args = parser.parse_args()
 
-    config_yaml = '/etc/fwgen/config.yml'
+    config_yaml = CONFIG
     if args.config:
         config_yaml = args.config
 
