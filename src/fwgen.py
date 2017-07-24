@@ -17,8 +17,9 @@ DEFAULT_CHAINS_IP = {
 }
 DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
 CONFIG = '/etc/fwgen/config.yml'
-IPTABLES_SAVE = '/etc/iptables.restore'
-IP6TABLES_SAVE = '/etc/ip6tables.restore'
+IPTABLES_RESTORE = '/etc/iptables.restore'
+IP6TABLES_RESTORE = '/etc/ip6tables.restore'
+IPSETS_RESTORE = '/etc/ipsets.restore'
 
 
 class FwGen(object):
@@ -29,13 +30,48 @@ class FwGen(object):
             'ip6': DEFAULT_CHAINS_IP6
         }
 
-    def get_policy_rules(self, family):
+    def output_ipsets(self, reset=False):
+        ipset_family_map = {
+            'ip': 'inet',
+            'ip6': 'inet6'
+        }
+        list_type = {
+            'networks': 'hash:net',
+            'hosts': 'hash:ip'
+        }
+
+        if reset:
+            yield 'flush'
+            yield 'destroy'
+        else:
+            for group_type, names in self.config.get('groups', {}).items():
+                for name, families in names.items():
+                    yield '-exist create %s list:set' % name
+                    yield 'flush %s' % name
+
+                    for family, entries in families.items():
+                        family_set = '%s_%s' % (name, family)
+
+                        yield '-exist create %s %s family %s' % (family_set,
+                                                                 list_type[group_type],
+                                                                 ipset_family_map[family])
+                        yield 'add %s %s' % (name, family_set)
+                        yield 'flush %s' % family_set
+
+                        for entry in entries:
+                            yield 'add %s %s' % (family_set, entry)
+
+    def get_policy_rules(self, family, reset=False):
         for table, chains in self.default_chains[family].items():
             for chain in chains:
-                try:
-                    policy = self.config['policies'][family][table][chain]
-                except KeyError:
-                    policy = 'ACCEPT'
+                policy = 'ACCEPT'
+
+                if not reset:
+                    try:
+                        policy = self.config['policies'][family][table][chain]
+                    except KeyError:
+                        pass
+
                 yield (table, ':%s %s' % (chain, policy))
 
     def get_zone_rules(self, family):
@@ -119,6 +155,17 @@ class FwGen(object):
 
             yield 'COMMIT'
 
+    def save_ipsets(self, path):
+        """
+        Avoid using `ipset save` in case there are other
+        ipsets used on the system for other purposes. Also
+        this avoid storing now unused ipsets from previous
+        configurations.
+        """
+        with open(path, 'w') as f:
+            for item in self.output_ipsets():
+                f.write('%s\n' % item)
+
     @staticmethod
     def save_rules(path, family):
         cmd = {
@@ -131,12 +178,14 @@ class FwGen(object):
 
     def save(self):
         save = {
-            'ip': IPTABLES_SAVE,
-            'ip6': IP6TABLES_SAVE
+            'ip': IPTABLES_RESTORE,
+            'ip6': IP6TABLES_RESTORE
         }
 
         for family in ['ip', 'ip6']:
             self.save_rules(save[family], family)
+
+        self.save_ipsets(IPSETS_RESTORE)
 
     @staticmethod
     def apply_rules(rules, family):
@@ -147,7 +196,15 @@ class FwGen(object):
         stdin = ('%s\n' % '\n'.join(rules)).encode('utf-8')
         subprocess.run(cmd[family], input=stdin)
 
+    @staticmethod
+    def apply_ipsets(ipsets):
+        stdin = ('%s\n' % '\n'.join(ipsets)).encode('utf-8')
+        subprocess.run(['ipset', 'restore'], input=stdin)
+
     def apply(self):
+        # Apply ipsets first to ensure they exist when the rules are applied
+        self.apply_ipsets(self.output_ipsets())
+
         for family in ['ip', 'ip6']:
             rules = []
             rules.extend(self.get_policy_rules(family))
@@ -161,9 +218,22 @@ class FwGen(object):
         self.apply()
         self.save()
 
+    def reset(self):
+        for family in ['ip', 'ip6']:
+            rules = []
+            rules.extend(self.get_policy_rules(family, reset=True))
+            self.apply_rules(self.output_rules(rules, family), family)
+
+        # Reset ipsets after the rules are removed to ensure ipsets are not in use
+        self.apply_ipsets(self.output_ipsets(reset=True))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', metavar='PATH', help='Path to config file')
+    parser.add_argument('--with-reset', action='store_true',
+        help='Clear the firewall before reapplying. Recommended only if ipsets in '
+             'use are preventing you from applying the new configuration.')
     args = parser.parse_args()
 
     config_yaml = CONFIG
@@ -174,6 +244,8 @@ def main():
         config = yaml.load(f)
 
     fw = FwGen(config)
+    if args.with_reset:
+        fw.reset()
     fw.commit()
 
 if __name__ == '__main__':
