@@ -21,14 +21,13 @@ DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
 class FwGen(object):
     def __init__(self, config):
         self.config = config
-
-    def get_policy_rules(self, family):
-        default_chains = {
+        self.default_chains = {
             'ip': DEFAULT_CHAINS_IP,
             'ip6': DEFAULT_CHAINS_IP6
         }
 
-        for table, chains in default_chains[family].items():
+    def get_policy_rules(self, family):
+        for table, chains in self.default_chains[family].items():
             for chain in chains:
                 try:
                     policy = self.config['policies'][family][table][chain]
@@ -108,12 +107,7 @@ class FwGen(object):
             yield rule
 
     def output_rules(self, rules, family):
-        default_chains = {
-            'ip': DEFAULT_CHAINS_IP,
-            'ip6': DEFAULT_CHAINS_IP6
-        }
-
-        for table in default_chains[family]:
+        for table in self.default_chains[family]:
             yield '*%s' % table
 
             for rule_table, rule in rules:
