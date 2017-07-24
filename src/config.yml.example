@@ -1,4 +1,4 @@
-# Example group objects which can be accessed as ipsets in the iptables rules
+# Example groupings of hosts and networks which can be accessed as ipsets in the iptables rules
 #groups:
 #  networks:
 #    servers:
@@ -65,11 +65,13 @@
 #          ...
 
 
+#
 # Complete example for a classic IPv4 two interface gateway with NAT
+#
 # The default policy is DROP for filter table for both IPv4 and IPv6 and
 # ACCEPT for everything else, so an explicit ACCEPT is needed to pass traffic.
-# There is no need to add rules for return traffic as these are added is added
-# at the top of the ruleset via defaults.yml for maximum efficiency.
+# There is no need to add rules for return traffic as these are added at the
+# top of the ruleset via defaults.yml for maximum efficiency.
 #zones:
 #  LAN:
 #    interfaces:
@@ -96,7 +98,7 @@
 #            - -j MASQUERADE
 
 
-# Example with zone to zone rules, ipset groups and port forwarding. Use %{zone_name} whenever
+# Example with zone to zone rules and port forwarding. Use %{zone_name} whenever
 # you would use interface names in native iptables to automatically generate the
 # needed rules.
 #zones:
