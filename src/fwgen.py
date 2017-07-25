@@ -56,7 +56,7 @@ class FwGen(object):
 
     @staticmethod
     def get_netns():
-        output = subprocess.run(['ip', 'netns', 'identify'], stdout=subprocess.PIPE)
+        output = subprocess.run(['ip', 'netns', 'identify'], stdout=subprocess.PIPE, check=True)
         return output.stdout.strip()
 
     def output_ipsets(self, reset=False):
@@ -196,7 +196,7 @@ class FwGen(object):
 
     def save_rules(self, path, family):
         with open(path, 'wb') as f:
-            subprocess.run(self.save_cmd[family], stdout=f)
+            subprocess.run(self.save_cmd[family], stdout=f, check=True)
 
     def save(self):
         for family in ['ip', 'ip6']:
@@ -206,19 +206,19 @@ class FwGen(object):
 
     def apply_rules(self, rules, family):
         stdin = ('%s\n' % '\n'.join(rules)).encode('utf-8')
-        subprocess.run(self.restore_cmd[family], input=stdin)
+        subprocess.run(self.restore_cmd[family], input=stdin, check=True)
 
     def restore_rules(self, path, family):
         with open(path, 'rb') as f:
-            subprocess.run(self.restore_cmd[family], stdin=f)
+            subprocess.run(self.restore_cmd[family], stdin=f, check=True)
 
     def apply_ipsets(self, ipsets):
         stdin = ('%s\n' % '\n'.join(ipsets)).encode('utf-8')
-        subprocess.run(self.restore_cmd['ipset'], input=stdin)
+        subprocess.run(self.restore_cmd['ipset'], input=stdin, check=True)
 
     def restore_ipsets(self, path):
         with open(path, 'rb') as f:
-            subprocess.run(self.restore_cmd['ipset'], stdin=f)
+            subprocess.run(self.restore_cmd['ipset'], stdin=f, check=True)
 
     def apply(self):
         # Apply ipsets first to ensure they exist when the rules are applied
