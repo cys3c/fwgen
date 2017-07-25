@@ -1,26 +1,26 @@
-# Example groupings of hosts and networks which can be accessed as ipsets in the iptables rules
-#groups:
-#  networks:
-#    servers:
-#      ip:
-#        - 192.168.0.0/24
-#        - 192.168.1.0/24
-#      ip6:
-#        - fd12:3456:789a:1::/64
-#        - fd12:3456:789a:2::/64
-#  hosts:
-#    dns_servers:
-#      ip:
-#        - 4.4.4.4
-#        - 8.8.4.4
-#      ip6:
-#        - 2001:0000:3238:DFE1:63::FEFB
-#        - 2001:0000:3238:DFE1:63::FEFB
-#        - ::ffff:192.0.2.128
-#        - 2001:db8::1
-#    host-1:
-#      ip: 192.168.0.1
-
+# Example ipsets for use in the iptables rules via the set module
+#ipsets:
+#  servers_v4:
+#    type: hash:net
+#    entries:
+#      - 192.168.0.0/24
+#      - 192.168.1.0/24
+#  servers_v6:
+#    type: hash:net
+#    options: family inet6
+#    entries:
+#      - fd12:3456:789a:1::/64
+#      - fd12:3456:789a:2::/64
+#  servers:
+#    type: list:set
+#    entries:
+#      - servers_v4
+#      - servers_v6
+#  dns_servers:
+#    type: hash:ip
+#    entries:
+#      - 4.4.4.4
+#      - 8.8.4.4
 
 # You may override the default filter policies of "DROP"
 #policies:
@@ -149,3 +149,5 @@
 #        nat:
 #          POSTROUTING:
 #            - -j MASQUERADE
+
+# vim: ft=yaml
