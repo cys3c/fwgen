@@ -100,7 +100,12 @@
 
 # Example with zone to zone rules and port forwarding. Use %{zone_name} whenever
 # you would use interface names in native iptables to automatically generate the
-# needed rules.
+# needed rules. ${variable} can be used for places where ipsets are overkill or
+# can't be used. The variable must be defined as a key in the variables dictionary.
+
+#variables:
+#  web-server: 10.0.0.10
+
 #zones:
 #  LAN:
 #    interfaces:
@@ -121,12 +126,12 @@
 #      ip:
 #        filter:
 #          FORWARD:
-#            - -d 10.0.0.10 -p tcp --dport 80 -j ACCEPT
+#            - -d ${web-server} -p tcp --dport 80 -j ACCEPT
 #          OUTPUT:
 #            - -j ACCEPT
 #        nat:
 #          PREROUTING:
-#            - -p tcp --dport 80 -j DNAT --to-destination 10.0.0.10
+#            - -p tcp --dport 80 -j DNAT --to-destination ${web-server}
 #          POSTROUTING:
 #            - -j MASQUERADE
 #  DMZ:

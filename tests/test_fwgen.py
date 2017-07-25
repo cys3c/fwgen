@@ -14,7 +14,6 @@ class TestFwGen(object):
                 }
             }
         }
-
         fw = FwGen(config)
         rule = '-A FORWARD -i %{lan} -o %{dmz} -j ACCEPT'
         rules_expanded = [
@@ -38,10 +37,32 @@ class TestFwGen(object):
                 }
             }
         }
-
         fw = FwGen(config)
         rule = '-A INPUT -i lo -j ACCEPT'
         rules_expanded = [rule]
 
         result = [i for i in fw.expand_zones(rule)]
         assert result == rules_expanded
+
+    def test_variable_substitution(self):
+        config = {
+            'variables': {
+                'host1': '10.0.0.10',
+                'host2': '192.168.0.10'
+            }
+        }
+        fw = FwGen(config)
+        rule = '-A PREROUTING -s ${host1} -j DNAT --to-destination ${host2}'
+        rule_substituted = '-A PREROUTING -s 10.0.0.10 -j DNAT --to-destination 192.168.0.10'
+
+        result = fw.substitute_variables(rule)
+        assert result == rule_substituted
+
+    def test_no_variable_substitution(self):
+        config = {}
+        fw = FwGen(config)
+        rule = '-A PREROUTING -s 10.0.0.10 -j DNAT --to-destination 192.168.0.10'
+        rule_substituted = '-A PREROUTING -s 10.0.0.10 -j DNAT --to-destination 192.168.0.10'
+
+        result = fw.substitute_variables(rule)
+        assert result == rule_substituted

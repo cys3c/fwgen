@@ -161,7 +161,7 @@ class FwGen(object):
                         raise Exception('%s is not a valid default chain' % chain)
 
     def expand_zones(self, rule):
-        zone_pattern = re.compile(r'^(.+?\s)%\{(.+?)\}(\s.+)$')
+        zone_pattern = re.compile(r'^(.*?)%\{(.+?)\}(.*)$')
         match = re.search(zone_pattern, rule)
 
         if match:
@@ -173,13 +173,29 @@ class FwGen(object):
         else:
             yield rule
 
+    def substitute_variables(self, rule):
+        variable_pattern = re.compile(r'^(.*?)\$\{(.+?)\}(.*)$')
+        match = re.search(variable_pattern, rule)
+
+        if match:
+            variable = match.group(2)
+            value = self.config['variables'][variable]
+            result = '%s%s%s' % (match.group(1), value, match.group(3))
+            return self.substitute_variables(result)
+        else:
+            return rule
+
+    def parse_rule(self, rule):
+        rule = self.substitute_variables(rule)
+        yield from self.expand_zones(rule)
+
     def output_rules(self, rules, family):
         for table in self.default_chains[family]:
             yield '*%s' % table
 
             for rule_table, rule in rules:
                 if rule_table == table:
-                    yield from self.expand_zones(rule)
+                    yield from self.parse_rule(rule)
 
             yield 'COMMIT'
 
