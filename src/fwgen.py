@@ -21,7 +21,6 @@ DEFAULT_CHAINS_IP = {
 DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
 CONFIG = b'/etc/fwgen/config.yml'
 DEFAULTS = b'/etc/fwgen/defaults.yml'
-TIMEOUT=30
 
 
 class FwGen(object):
@@ -33,7 +32,7 @@ class FwGen(object):
         }
 
         etc = b'/etc'
-        netns = self.get_netns()
+        netns = self._get_netns()
 
         if netns:
             etc = b'/etc/netns/%s' % netns
@@ -55,11 +54,11 @@ class FwGen(object):
         }
 
     @staticmethod
-    def get_netns():
+    def _get_netns():
         output = subprocess.run(['ip', 'netns', 'identify'], stdout=subprocess.PIPE, check=True)
         return output.stdout.strip()
 
-    def output_ipsets(self, reset=False):
+    def _output_ipsets(self, reset=False):
         if reset:
             yield 'flush'
             yield 'destroy'
@@ -71,9 +70,9 @@ class FwGen(object):
                 yield 'flush %s' % ipset
 
                 for entry in params['entries']:
-                    yield self.substitute_variables('add %s %s' % (ipset, entry))
+                    yield self._substitute_variables('add %s %s' % (ipset, entry))
 
-    def get_policy_rules(self, family, reset=False):
+    def _get_policy_rules(self, family, reset=False):
         for table, chains in self.default_chains[family].items():
             for chain in chains:
                 policy = 'ACCEPT'
@@ -86,7 +85,7 @@ class FwGen(object):
 
                 yield (table, ':%s %s' % (chain, policy))
 
-    def get_zone_rules(self, family):
+    def _get_zone_rules(self, family):
         for zone, params in self.config.get('zones', {}).items():
             if 'rules' not in params:
                 continue
@@ -97,28 +96,28 @@ class FwGen(object):
                     for rule in chain_rules:
                         yield (table, '-A %s %s' % (zone_chain, rule))
 
-    def get_pre_default_rules(self, family):
+    def _get_pre_default_rules(self, family):
         try:
             rules = self.config['pre_default']['rules'][family]
         except KeyError:
             rules = {}
-        return self.get_rules(rules)
+        return self._get_rules(rules)
 
-    def get_default_rules(self, family):
+    def _get_default_rules(self, family):
         try:
             rules = self.config['defaults']['rules'][family]
         except KeyError:
             rules = {}
-        return self.get_rules(rules)
+        return self._get_rules(rules)
 
-    def get_global_rules(self, family):
+    def _get_global_rules(self, family):
         try:
             rules = self.config['global']['rules'][family]
         except KeyError:
             rules = {}
-        return self.get_rules(rules)
+        return self._get_rules(rules)
 
-    def get_helper_chains(self, family):
+    def _get_helper_chains(self, family):
         try:
             rules = self.config['helper_chains'][family]
         except KeyError:
@@ -126,22 +125,22 @@ class FwGen(object):
 
         for table, chains in rules.items():
             for chain in chains:
-                yield self.get_new_chain_rule(table, chain)
+                yield self._get_new_chain_rule(table, chain)
 
-        yield from self.get_rules(rules)
+        yield from self._get_rules(rules)
 
     @staticmethod
-    def get_rules(rules):
+    def _get_rules(rules):
         for table, chains in rules.items():
             for chain, chain_rules in chains.items():
                 for rule in chain_rules:
                     yield (table, '-A %s %s' % (chain, rule))
 
     @staticmethod
-    def get_new_chain_rule(table, chain):
+    def _get_new_chain_rule(table, chain):
         return (table, ':%s -' % chain)
 
-    def get_zone_dispatchers(self, family):
+    def _get_zone_dispatchers(self, family):
         for zone, params in self.config.get('zones', {}).items():
             if 'rules' not in params:
                 continue
@@ -149,7 +148,7 @@ class FwGen(object):
             for table, chains in params['rules'].get(family, {}).items():
                 for chain in chains:
                     dispatcher_chain = '%s_%s' % (zone, chain)
-                    yield self.get_new_chain_rule(table, dispatcher_chain)
+                    yield self._get_new_chain_rule(table, dispatcher_chain)
 
                     if chain in ['PREROUTING', 'INPUT', 'FORWARD']:
                         yield (table, '-A %s -i %%{%s} -j %s' % (chain, zone, dispatcher_chain))
@@ -158,7 +157,7 @@ class FwGen(object):
                     else:
                         raise Exception('%s is not a valid default chain' % chain)
 
-    def expand_zones(self, rule):
+    def _expand_zones(self, rule):
         zone_pattern = re.compile(r'^(.*?)%\{(.+?)\}(.*)$')
         match = re.search(zone_pattern, rule)
 
@@ -167,11 +166,11 @@ class FwGen(object):
 
             for interface in self.config['zones'][zone]['interfaces']:
                 rule_expanded = '%s%s%s' % (match.group(1), interface, match.group(3))
-                yield from self.expand_zones(rule_expanded)
+                yield from self._expand_zones(rule_expanded)
         else:
             yield rule
 
-    def substitute_variables(self, string):
+    def _substitute_variables(self, string):
         variable_pattern = re.compile(r'^(.*?)\$\{(.+?)\}(.*)$')
         match = re.search(variable_pattern, string)
 
@@ -179,25 +178,25 @@ class FwGen(object):
             variable = match.group(2)
             value = self.config['variables'][variable]
             result = '%s%s%s' % (match.group(1), value, match.group(3))
-            return self.substitute_variables(result)
-        else:
-            return string
+            return self._substitute_variables(result)
 
-    def parse_rule(self, rule):
-        rule = self.substitute_variables(rule)
-        yield from self.expand_zones(rule)
+        return string
 
-    def output_rules(self, rules, family):
+    def _parse_rule(self, rule):
+        rule = self._substitute_variables(rule)
+        yield from self._expand_zones(rule)
+
+    def _output_rules(self, rules, family):
         for table in self.default_chains[family]:
             yield '*%s' % table
 
             for rule_table, rule in rules:
                 if rule_table == table:
-                    yield from self.parse_rule(rule)
+                    yield from self._parse_rule(rule)
 
             yield 'COMMIT'
 
-    def save_ipsets(self, path):
+    def _save_ipsets(self, path):
         """
         Avoid using `ipset save` in case there are other
         ipsets used on the system for other purposes. Also
@@ -205,49 +204,49 @@ class FwGen(object):
         configurations.
         """
         with open(path, 'w') as f:
-            for item in self.output_ipsets():
+            for item in self._output_ipsets():
                 f.write('%s\n' % item)
 
-    def save_rules(self, path, family):
+    def _save_rules(self, path, family):
         with open(path, 'wb') as f:
             subprocess.run(self.save_cmd[family], stdout=f, check=True)
 
-    def save(self):
-        for family in ['ip', 'ip6']:
-            self.save_rules(self.restore_file[family], family)
-
-        self.save_ipsets(self.restore_file['ipset'])
-
-    def apply_rules(self, rules, family):
+    def _apply_rules(self, rules, family):
         stdin = ('%s\n' % '\n'.join(rules)).encode('utf-8')
         subprocess.run(self.restore_cmd[family], input=stdin, check=True)
 
-    def restore_rules(self, path, family):
+    def _restore_rules(self, path, family):
         with open(path, 'rb') as f:
             subprocess.run(self.restore_cmd[family], stdin=f, check=True)
 
-    def apply_ipsets(self, ipsets):
+    def _apply_ipsets(self, ipsets):
         stdin = ('%s\n' % '\n'.join(ipsets)).encode('utf-8')
         subprocess.run(self.restore_cmd['ipset'], input=stdin, check=True)
 
-    def restore_ipsets(self, path):
+    def _restore_ipsets(self, path):
         with open(path, 'rb') as f:
             subprocess.run(self.restore_cmd['ipset'], stdin=f, check=True)
 
+    def save(self):
+        for family in ['ip', 'ip6']:
+            self._save_rules(self.restore_file[family], family)
+
+        self._save_ipsets(self.restore_file['ipset'])
+
     def apply(self):
         # Apply ipsets first to ensure they exist when the rules are applied
-        self.apply_ipsets(self.output_ipsets())
+        self._apply_ipsets(self._output_ipsets())
 
         for family in ['ip', 'ip6']:
             rules = []
-            rules.extend(self.get_policy_rules(family))
-            rules.extend(self.get_pre_default_rules(family))
-            rules.extend(self.get_default_rules(family))
-            rules.extend(self.get_helper_chains(family))
-            rules.extend(self.get_global_rules(family))
-            rules.extend(self.get_zone_dispatchers(family))
-            rules.extend(self.get_zone_rules(family))
-            self.apply_rules(self.output_rules(rules, family), family)
+            rules.extend(self._get_policy_rules(family))
+            rules.extend(self._get_pre_default_rules(family))
+            rules.extend(self._get_default_rules(family))
+            rules.extend(self._get_helper_chains(family))
+            rules.extend(self._get_global_rules(family))
+            rules.extend(self._get_zone_dispatchers(family))
+            rules.extend(self._get_zone_rules(family))
+            self._apply_rules(self._output_rules(rules, family), family)
 
     def commit(self):
         self.apply()
@@ -256,14 +255,14 @@ class FwGen(object):
     def rollback(self):
         for family in ['ip', 'ip6']:
             if os.path.exists(self.restore_file[family]):
-                self.restore_rules(self.restore_file[family], family)
+                self._restore_rules(self.restore_file[family], family)
             else:
                 self.reset(family)
 
         if os.path.exists(self.restore_file['ipset']):
-            self.restore_ipsets(self.restore_file['ipset'])
+            self._restore_ipsets(self.restore_file['ipset'])
         else:
-            self.apply_ipsets(self.output_ipsets(reset=True))
+            self._apply_ipsets(self._output_ipsets(reset=True))
 
     def reset(self, family=None):
         families = ['ip', 'ip6']
@@ -271,13 +270,13 @@ class FwGen(object):
         if family:
             families = [family]
 
-        for family in families:
+        for family_ in families:
             rules = []
-            rules.extend(self.get_policy_rules(family, reset=True))
-            self.apply_rules(self.output_rules(rules, family), family)
+            rules.extend(self._get_policy_rules(family_, reset=True))
+            self._apply_rules(self._output_rules(rules, family_), family_)
 
         # Reset ipsets after the rules are removed to ensure ipsets are not in use
-        self.apply_ipsets(self.output_ipsets(reset=True))
+        self._apply_ipsets(self._output_ipsets(reset=True))
 
 
 class TimeoutExpired(Exception):
@@ -314,17 +313,23 @@ def setup_yaml():
     Use to preserve dict order from imported yaml config
     """
     represent_dict_order = lambda self, data: self.represent_mapping('tag:yaml.org,2002:map',
-                                                                      data.items())
+                                                                     data.items())
     yaml.add_representer(OrderedDict, represent_dict_order)
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', metavar='PATH', help='Path to config file')
-    parser.add_argument('--with-reset', action='store_true',
+    parser.add_argument(
+        '--with-reset',
+        action='store_true',
         help='Clear the firewall before reapplying. Recommended only if ipsets in '
-             'use are preventing you from applying the new configuration.')
-    parser.add_argument('--no-confirm', action='store_true',
-        help="Don't ask for confirmation before storing ruleset.")
+             'use are preventing you from applying the new configuration.'
+    )
+    parser.add_argument(
+        '--no-confirm',
+        action='store_true',
+        help="Don't ask for confirmation before storing ruleset."
+    )
     args = parser.parse_args()
 
     user_config = CONFIG
@@ -343,13 +348,14 @@ def main():
     if args.no_confirm:
         fw.commit()
     else:
-        print('\nRolling back in %d seconds if not confirmed.\n' % TIMEOUT)
+        timeout = 30
+        print('\nRolling back in %d seconds if not confirmed.\n' % timeout)
         fw.apply()
         message = ('The ruleset has been applied successfully! Press \'Enter\' to make the '
                    'new ruleset persistent.\n')
 
         try:
-            wait_for_input(message, TIMEOUT)
+            wait_for_input(message, timeout)
             fw.save()
         except (TimeoutExpired, KeyboardInterrupt):
             print('No confirmation received. Rolling back...\n')

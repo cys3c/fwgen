@@ -23,7 +23,7 @@ class TestFwGen(object):
             '-A FORWARD -i eth1 -o eth3 -j ACCEPT',
         ]
 
-        result = [i for i in fw.expand_zones(rule)]
+        result = [i for i in fw._expand_zones(rule)]
         assert result == rules_expanded
 
     def test_zone_expansion_no_zone(self):
@@ -41,7 +41,7 @@ class TestFwGen(object):
         rule = '-A INPUT -i lo -j ACCEPT'
         rules_expanded = [rule]
 
-        result = [i for i in fw.expand_zones(rule)]
+        result = [i for i in fw._expand_zones(rule)]
         assert result == rules_expanded
 
     def test_variable_substitution(self):
@@ -55,7 +55,7 @@ class TestFwGen(object):
         rule = '-A PREROUTING -s ${host1} -j DNAT --to-destination ${host2}'
         rule_substituted = '-A PREROUTING -s 10.0.0.10 -j DNAT --to-destination 192.168.0.10'
 
-        result = fw.substitute_variables(rule)
+        result = fw._substitute_variables(rule)
         assert result == rule_substituted
 
     def test_no_variable_substitution(self):
@@ -64,5 +64,5 @@ class TestFwGen(object):
         rule = '-A PREROUTING -s 10.0.0.10 -j DNAT --to-destination 192.168.0.10'
         rule_substituted = '-A PREROUTING -s 10.0.0.10 -j DNAT --to-destination 192.168.0.10'
 
-        result = fw.substitute_variables(rule)
+        result = fw._substitute_variables(rule)
         assert result == rule_substituted
