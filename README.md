@@ -31,7 +31,7 @@ Put the files someplace logical. fwgen by default looks in `/etc/fwgen/` for con
     chmod 600 /etc/fwgen/*.yml
 
     cp fwgen.py /usr/local/bin/fwgen
-    cp restore-fw /usr/local/bin/restore-fw
+    cp restore-fw.sh /usr/local/bin/restore-fw
     ln -s /usr/local/bin/restore-fw /etc/network/if-pre-up.d/restore-fw
 
 # Usage
