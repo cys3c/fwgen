@@ -19,7 +19,12 @@ global:
       filter:
         CUSTOM_REJECT:
           - -p tcp -j REJECT --reject-with tcp-reset
-          - -j REJECT --reject-with icmp-port-unreachable
+          - -j REJECT
+    ip6:
+      filter:
+        CUSTOM_REJECT:
+          - -p tcp -j REJECT --reject-with tcp-reset
+          - -j REJECT
   rules:
     default:
       ip:
