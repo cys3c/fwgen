@@ -71,7 +71,7 @@ class FwGen(object):
                 yield 'flush %s' % ipset
 
                 for entry in params['entries']:
-                    yield 'add %s %s' % (ipset, entry)
+                    yield self.substitute_variables('add %s %s' % (ipset, entry))
 
     def get_policy_rules(self, family, reset=False):
         for table, chains in self.default_chains[family].items():
@@ -97,9 +97,23 @@ class FwGen(object):
                     for rule in chain_rules:
                         yield (table, '-A %s %s' % (zone_chain, rule))
 
+    def get_pre_default_rules(self, family):
+        try:
+            rules = self.config['pre_default']['rules'][family]
+        except KeyError:
+            rules = {}
+        return self.get_rules(rules)
+
     def get_default_rules(self, family):
         try:
             rules = self.config['defaults']['rules'][family]
+        except KeyError:
+            rules = {}
+        return self.get_rules(rules)
+
+    def get_global_rules(self, family):
+        try:
+            rules = self.config['global']['rules'][family]
         except KeyError:
             rules = {}
         return self.get_rules(rules)
@@ -157,9 +171,9 @@ class FwGen(object):
         else:
             yield rule
 
-    def substitute_variables(self, rule):
+    def substitute_variables(self, string):
         variable_pattern = re.compile(r'^(.*?)\$\{(.+?)\}(.*)$')
-        match = re.search(variable_pattern, rule)
+        match = re.search(variable_pattern, string)
 
         if match:
             variable = match.group(2)
@@ -167,7 +181,7 @@ class FwGen(object):
             result = '%s%s%s' % (match.group(1), value, match.group(3))
             return self.substitute_variables(result)
         else:
-            return rule
+            return string
 
     def parse_rule(self, rule):
         rule = self.substitute_variables(rule)
@@ -227,8 +241,10 @@ class FwGen(object):
         for family in ['ip', 'ip6']:
             rules = []
             rules.extend(self.get_policy_rules(family))
+            rules.extend(self.get_pre_default_rules(family))
             rules.extend(self.get_default_rules(family))
             rules.extend(self.get_helper_chains(family))
+            rules.extend(self.get_global_rules(family))
             rules.extend(self.get_zone_dispatchers(family))
             rules.extend(self.get_zone_rules(family))
             self.apply_rules(self.output_rules(rules, family), family)

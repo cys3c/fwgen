@@ -36,12 +36,34 @@
 #      OUTPUT: ACCEPT
 #
 
+# In some very rare cases you may want to put some rules even before the default
+# rules. This is useful if you want to do some processing even on packets that are
+# part of an established session.
+#pre_default:
+#  rules:
+#    ip:
+# 		 filter:
+#			   FORWARD:
+#				 		...
+
+# If you have iptables logic that you use often, create those here
 #helper_chains:
 #  ip:
 #    filter:
 #      LOG_REJECT:
 #        - '-j LOG --log-level warning --log-prefix "IPTABLES_REJECT: "'
 #        - -j REJECT
+
+# You can add global rules that are processed before zone dispatching here.
+# These will be hit for all interfaces, although they are still processed after
+# the default rules.
+#global:
+#  rules:
+#    ip:
+#      raw:
+#        # Add TFTP conntrack helper (new behaviour as of kernel 4.7)
+#        PREROUTING:
+#          - -p udp -d ${pxe} --dport 69 -j CT --helper tftp
 
 #zones:
 #  dmz:
@@ -66,7 +88,7 @@
 
 
 #
-# Complete example for a classic IPv4 two interface gateway with NAT
+# Complete minimal example for a classic IPv4 two interface gateway with NAT
 #
 # The default policy is DROP for filter table for both IPv4 and IPv6 and
 # ACCEPT for everything else, so an explicit ACCEPT is needed to pass traffic.
@@ -104,7 +126,7 @@
 # can't be used. The variable must be defined as a key in the variables dictionary.
 
 #variables:
-#  web-server: 10.0.0.10
+#  web_server: 10.0.0.10
 
 #zones:
 #  LAN:
@@ -126,12 +148,12 @@
 #      ip:
 #        filter:
 #          FORWARD:
-#            - -d ${web-server} -p tcp --dport 80 -j ACCEPT
+#            - -d ${web_server} -p tcp --dport 80 -j ACCEPT
 #          OUTPUT:
 #            - -j ACCEPT
 #        nat:
 #          PREROUTING:
-#            - -p tcp --dport 80 -j DNAT --to-destination ${web-server}
+#            - -p tcp --dport 80 -j DNAT --to-destination ${web_server}
 #          POSTROUTING:
 #            - -j MASQUERADE
 #  DMZ:
@@ -142,8 +164,10 @@
 #        filter:
 #          INPUT:
 #            - -p icmp --imcp-type echo-request -j ACCEPT
+#            - -j CUSTOM_REJECT
 #          FORWARD:
 #            - -o %{WAN} -j ACCEPT
+#            - -j CUSTOM_REJECT
 #          OUTPUT:
 #            - -j ACCEPT
 #        nat:
