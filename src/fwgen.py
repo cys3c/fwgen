@@ -25,7 +25,8 @@ DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
 class FwGen(object):
     def __init__(self, config):
         self.config = config
-        self.default_chains = {
+        self._ip_families = ['ip', 'ip6']
+        self._default_chains = {
             'ip': DEFAULT_CHAINS_IP,
             'ip6': DEFAULT_CHAINS_IP6
         }
@@ -74,7 +75,7 @@ class FwGen(object):
                     yield self._substitute_variables('add %s %s' % (ipset, entry))
 
     def _get_policy_rules(self, family, reset=False):
-        for table, chains in self.default_chains[family].items():
+        for table, chains in self._default_chains[family].items():
             for chain in chains:
                 policy = 'ACCEPT'
 
@@ -178,7 +179,7 @@ class FwGen(object):
         yield from self._expand_zones(rule)
 
     def _output_rules(self, rules, family):
-        for table in self.default_chains[family]:
+        for table in self._default_chains[family]:
             yield '*%s' % table
 
             for rule_table, rule in rules:
@@ -219,7 +220,7 @@ class FwGen(object):
             subprocess.run(self._restore_cmd['ipset'], stdin=f, check=True)
 
     def save(self):
-        for family in ['ip', 'ip6']:
+        for family in self._ip_families:
             self._save_rules(self._restore_file[family], family)
 
         self._save_ipsets(self._restore_file['ipset'])
@@ -228,7 +229,7 @@ class FwGen(object):
         # Apply ipsets first to ensure they exist when the rules are applied
         self._apply_ipsets(self._output_ipsets())
 
-        for family in ['ip', 'ip6']:
+        for family in self._ip_families:
             rules = []
             rules.extend(self._get_policy_rules(family))
             rules.extend(self._get_helper_chains(family))
@@ -242,7 +243,7 @@ class FwGen(object):
         self.save()
 
     def rollback(self):
-        for family in ['ip', 'ip6']:
+        for family in self._ip_families:
             if os.path.exists(self._restore_file[family]):
                 self._restore_rules(self._restore_file[family], family)
             else:
@@ -254,7 +255,7 @@ class FwGen(object):
             self._apply_ipsets(self._output_ipsets(reset=True))
 
     def reset(self, family=None):
-        families = ['ip', 'ip6']
+        families = self._ip_families
 
         if family:
             families = [family]
