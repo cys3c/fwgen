@@ -11,6 +11,7 @@ from collections import OrderedDict
 import yaml
 
 
+VERSION = '0.1.0'
 DEFAULT_CHAINS_IP = {
     'filter': ['INPUT', 'FORWARD', 'OUTPUT'],
     'nat': ['PREROUTING', 'INPUT', 'OUTPUT', 'POSTROUTING'],
@@ -19,8 +20,6 @@ DEFAULT_CHAINS_IP = {
     'security': ['INPUT', 'FORWARD', 'OUTPUT']
 }
 DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
-CONFIG = b'/etc/fwgen/config.yml'
-DEFAULTS = b'/etc/fwgen/defaults.yml'
 
 
 class FwGen(object):
@@ -306,26 +305,39 @@ def setup_yaml():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', metavar='PATH', help='Path to config file')
+    parser.add_argument('--version', action='store_true', help='Print version and exit')
+    parser.add_argument('--config', metavar='PATH', help='Override path to config file')
+    parser.add_argument('--defaults', metavar='PATH', help='Override path to defaults file')
     parser.add_argument(
         '--with-reset',
         action='store_true',
         help='Clear the firewall before reapplying. Recommended only if ipsets in '
              'use are preventing you from applying the new configuration.'
     )
-    parser.add_argument(
+    mutex_group = parser.add_mutually_exclusive_group()
+    mutex_group.add_argument('--timeout', metavar='SECONDS', type=int,
+                             help='Override timeout for rollback')
+    mutex_group.add_argument(
         '--no-confirm',
         action='store_true',
-        help="Don't ask for confirmation before storing ruleset."
+        help="Don't ask for confirmation before storing ruleset"
     )
     args = parser.parse_args()
 
-    user_config = CONFIG
+    if args.version:
+        print('fwgen v%s' % VERSION)
+        sys.exit(0)
+
+    defaults = b'/etc/fwgen/defaults.yml'
+    if args.defaults:
+        defaults = args.defaults
+
+    user_config = b'/etc/fwgen/config.yml'
     if args.config:
         user_config = args.config
 
     setup_yaml()
-    with open(DEFAULTS, 'r') as f:
+    with open(defaults, 'r') as f:
         config = yaml.load(f)
     with open(user_config, 'r') as f:
         config = dict_merge(yaml.load(f), config)
@@ -337,6 +349,9 @@ def main():
         fw.commit()
     else:
         timeout = 30
+        if args.timeout:
+            timeout = args.timeout
+
         print('\nRolling back in %d seconds if not confirmed.\n' % timeout)
         fw.apply()
         message = ('The ruleset has been applied successfully! Press \'Enter\' to make the '
