@@ -46,7 +46,7 @@
 #       FORWARD:
 #         - ...
 
-# If you have iptables logic that you use often, create those here
+# Create additonal chains here
 #helper_chains:
 #  ip:
 #    filter:
