@@ -42,9 +42,9 @@
 #pre_default:
 #  rules:
 #    ip:
-# 		 filter:
-#			   FORWARD:
-#				 		...
+#     filter:
+#       FORWARD:
+#         - ...
 
 # If you have iptables logic that you use often, create those here
 #helper_chains:
