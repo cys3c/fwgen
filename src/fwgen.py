@@ -29,28 +29,30 @@ class FwGen(object):
             'ip': DEFAULT_CHAINS_IP,
             'ip6': DEFAULT_CHAINS_IP6
         }
-
-        etc = b'/etc'
-        netns = self._get_netns()
-
-        if netns:
-            etc = b'/etc/netns/%s' % netns
-            os.makedirs(etc, exist_ok=True)
-
-        self.restore_file = {
+        etc = self._get_etc()
+        self._restore_file = {
             'ip': b'%s/iptables.restore' % etc,
             'ip6': b'%s/ip6tables.restore' % etc,
             'ipset': b'%s/ipsets.restore' % etc
         }
-        self.restore_cmd = {
+        self._restore_cmd = {
             'ip': ['iptables-restore'],
             'ip6': ['ip6tables-restore'],
             'ipset': ['ipset', 'restore']
         }
-        self.save_cmd = {
+        self._save_cmd = {
             'ip': ['iptables-save'],
             'ip6': ['ip6tables-save']
         }
+
+    def _get_etc(self):
+        etc = b'/etc'
+        netns = self._get_netns()
+        if netns:
+            etc = b'/etc/netns/%s' % netns
+            os.makedirs(etc, exist_ok=True)
+
+        return etc
 
     @staticmethod
     def _get_netns():
@@ -198,29 +200,29 @@ class FwGen(object):
 
     def _save_rules(self, path, family):
         with open(path, 'wb') as f:
-            subprocess.run(self.save_cmd[family], stdout=f, check=True)
+            subprocess.run(self._save_cmd[family], stdout=f, check=True)
 
     def _apply_rules(self, rules, family):
         stdin = ('%s\n' % '\n'.join(rules)).encode('utf-8')
-        subprocess.run(self.restore_cmd[family], input=stdin, check=True)
+        subprocess.run(self._restore_cmd[family], input=stdin, check=True)
 
     def _restore_rules(self, path, family):
         with open(path, 'rb') as f:
-            subprocess.run(self.restore_cmd[family], stdin=f, check=True)
+            subprocess.run(self._restore_cmd[family], stdin=f, check=True)
 
     def _apply_ipsets(self, ipsets):
         stdin = ('%s\n' % '\n'.join(ipsets)).encode('utf-8')
-        subprocess.run(self.restore_cmd['ipset'], input=stdin, check=True)
+        subprocess.run(self._restore_cmd['ipset'], input=stdin, check=True)
 
     def _restore_ipsets(self, path):
         with open(path, 'rb') as f:
-            subprocess.run(self.restore_cmd['ipset'], stdin=f, check=True)
+            subprocess.run(self._restore_cmd['ipset'], stdin=f, check=True)
 
     def save(self):
         for family in ['ip', 'ip6']:
-            self._save_rules(self.restore_file[family], family)
+            self._save_rules(self._restore_file[family], family)
 
-        self._save_ipsets(self.restore_file['ipset'])
+        self._save_ipsets(self._restore_file['ipset'])
 
     def apply(self):
         # Apply ipsets first to ensure they exist when the rules are applied
@@ -241,13 +243,13 @@ class FwGen(object):
 
     def rollback(self):
         for family in ['ip', 'ip6']:
-            if os.path.exists(self.restore_file[family]):
-                self._restore_rules(self.restore_file[family], family)
+            if os.path.exists(self._restore_file[family]):
+                self._restore_rules(self._restore_file[family], family)
             else:
                 self.reset(family)
 
-        if os.path.exists(self.restore_file['ipset']):
-            self._restore_ipsets(self.restore_file['ipset'])
+        if os.path.exists(self._restore_file['ipset']):
+            self._restore_ipsets(self._restore_file['ipset'])
         else:
             self._apply_ipsets(self._output_ipsets(reset=True))
 
