@@ -1,5 +1,5 @@
 # Introduction
-fwgen is a small management framework to simplify managing ip(6)tables based firewalls and integrate ipset support. It is *not* an abstraction layer of the iptables syntax, so you still need to understand how to write iptables rules and how packets are processed through the iptables chains. This is the intended project scope to ensure all available functionality is exposed directly. fwgen does however help you create an efficient ruleset with very little effort.
+fwgen is a small management framework to simplify the management of ip(6)tables based firewalls, that also integrates ipset support and zones in a non-restrictive way. It is *not* an abstraction layer of the iptables syntax, so you still need to understand how to write iptables rules and how packets are processed through the iptables chains. This is the intended project scope to ensure all existing functionality is made available. fwgen does however help you create an efficient ruleset with very little effort.
 
 fwgen is mainly targeted towards network gateways and hosts which are configured via configuration management systems, often with multiple interfaces and complex rulesets that very fast gets unmanagable or inefficient if not done right. It may not be worth the effort to install it if you just have a simple server where you want to allow a couple of incoming ports.
 
