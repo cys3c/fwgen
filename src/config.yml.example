@@ -1,3 +1,6 @@
+#variables:
+#  web_server: 10.0.0.10
+
 # Example ipsets for use in the iptables rules via the set module
 #ipsets:
 #  servers_v4:
@@ -22,48 +25,47 @@
 #      - 4.4.4.4
 #      - 8.8.4.4
 
-# You may override the default filter policies of "DROP"
-#policies:
-#  ip:
-#    filter:
-#      INPUT: ACCEPT
-#      FORWARD: ACCEPT
-#      OUTPUT: ACCEPT
-#  ip6:
-#    filter:
-#      INPUT: ACCEPT
-#      FORWARD: ACCEPT
-#      OUTPUT: ACCEPT
-#
-
-# In some very rare cases you may want to put some rules even before the default
-# rules. This is useful if you want to do some processing even on packets that are
-# part of an established session.
-#pre_default:
-#  rules:
-#    ip:
-#     filter:
-#       FORWARD:
-#         - ...
-
-# Create additonal chains here
-#helper_chains:
-#  ip:
-#    filter:
-#      LOG_REJECT:
-#        - '-j LOG --log-level warning --log-prefix "IPTABLES_REJECT: "'
-#        - -j REJECT
-
-# You can add global rules that are processed before zone dispatching here.
-# These will be hit for all interfaces, although they are still processed after
-# the default rules.
 #global:
-#  rules:
+#  # You may override the default filter policies of "DROP"
+#  policy:
 #    ip:
-#      raw:
-#        # Add TFTP conntrack helper (new behaviour as of kernel 4.7)
-#        PREROUTING:
-#          - -p udp -d ${pxe} --dport 69 -j CT --helper tftp
+#      filter:
+#        INPUT: ACCEPT
+#        FORWARD: ACCEPT
+#        OUTPUT: ACCEPT
+#    ip6:
+#      filter:
+#        INPUT: ACCEPT
+#        FORWARD: ACCEPT
+#        OUTPUT: ACCEPT
+#
+#  # Create additonal chains here
+#  helper_chains:
+#    ip:
+#      filter:
+#        LOG_REJECT:
+#          - '-j LOG --log-level warning --log-prefix "IPTABLES_REJECT: "'
+#          - -j REJECT
+#
+#  rules:
+#    # In some very rare cases you may want to put some rules even before the default
+#    # rules. This is useful if you want to do some processing on packets that are
+#    # part of an established session.
+#    pre_default:
+#      ip:
+#       filter:
+#         FORWARD:
+#           - ...
+#
+#    # You can add rules that are processed before zone dispatching here.
+#    # These will be hit for all interfaces, although they are still processed after
+#    # the default rules.
+#    pre_zone:
+#      ip:
+#        raw:
+#          # Add TFTP conntrack helper (new behaviour as of kernel 4.7)
+#          PREROUTING:
+#            - -p udp -d ${pxe} --dport 69 -j CT --helper tftp
 
 #zones:
 #  dmz:

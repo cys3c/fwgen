@@ -79,7 +79,7 @@ class FwGen(object):
 
                 if not reset:
                     try:
-                        policy = self.config['policies'][family][table][chain]
+                        policy = self.config['global']['policy'][family][table][chain]
                     except KeyError:
                         pass
 
@@ -96,30 +96,20 @@ class FwGen(object):
                     for rule in chain_rules:
                         yield (table, '-A %s %s' % (zone_chain, rule))
 
-    def _get_pre_default_rules(self, family):
-        try:
-            rules = self.config['pre_default']['rules'][family]
-        except KeyError:
-            rules = {}
-        return self._get_rules(rules)
-
-    def _get_default_rules(self, family):
-        try:
-            rules = self.config['defaults']['rules'][family]
-        except KeyError:
-            rules = {}
-        return self._get_rules(rules)
-
     def _get_global_rules(self, family):
-        try:
-            rules = self.config['global']['rules'][family]
-        except KeyError:
-            rules = {}
-        return self._get_rules(rules)
+        """
+        Returns the rules from the global ruleset hooks in correct order
+        """
+        for ruleset in ['pre_default', 'default', 'pre_zone']:
+            try:
+                rules = self.config['global']['rules'][ruleset][family]
+            except KeyError:
+                rules = {}
+            yield from self._get_rules(rules)
 
     def _get_helper_chains(self, family):
         try:
-            rules = self.config['helper_chains'][family]
+            rules = self.config['global']['helper_chains'][family]
         except KeyError:
             rules = {}
 
@@ -240,8 +230,6 @@ class FwGen(object):
         for family in ['ip', 'ip6']:
             rules = []
             rules.extend(self._get_policy_rules(family))
-            rules.extend(self._get_pre_default_rules(family))
-            rules.extend(self._get_default_rules(family))
             rules.extend(self._get_helper_chains(family))
             rules.extend(self._get_global_rules(family))
             rules.extend(self._get_zone_dispatchers(family))
