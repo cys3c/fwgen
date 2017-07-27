@@ -103,17 +103,22 @@ class FwGen(object):
         Returns the rules from the global ruleset hooks in correct order
         """
         for ruleset in ['pre_default', 'default', 'pre_zone']:
+            rules = {}
+
             try:
                 rules = self.config['global']['rules'][ruleset][family]
             except KeyError:
-                rules = {}
+                pass
+
             yield from self._get_rules(rules)
 
     def _get_helper_chains(self, family):
+        rules = {}
+
         try:
             rules = self.config['global']['helper_chains'][family]
         except KeyError:
-            rules = {}
+            pass
 
         for table, chains in rules.items():
             for chain in chains:
