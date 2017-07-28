@@ -1,3 +1,8 @@
+# Rules are applied both to iptables and ip6tables. Use '-4' or '-6' in the rule
+# entry to indicate family if rule are family specific. This is documented in
+# the ip(6)tables manual. However, only family specific rules are finally stored
+# to the restore files.
+
 #variables:
 #  web_server: 10.0.0.10
 
@@ -77,7 +82,7 @@
 
 
 #
-# Complete minimal example for a classic IPv4 two interface gateway with NAT
+# Complete minimal example for a classic two interface gateway with NAT
 #
 # The default policy is DROP for filter table for both IPv4 and IPv6 and
 # ACCEPT for everything else, so an explicit ACCEPT is needed to pass traffic.
