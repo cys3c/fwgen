@@ -25,17 +25,17 @@ Install the requirements:
 Put the files someplace logical. fwgen by default looks in `/etc/fwgen/` for configuration files. As the configuration files contains the ruleset access should be restricted.
 
     mkdir /etc/fwgen
-    cp defaults.yml /etc/fwgen/
+    cp etc/defaults.yml /etc/fwgen/
     touch /etc/fwgen/config.yml
     chown -R root. /etc/fwgen
     chmod 600 /etc/fwgen/*.yml
 
-    cp fwgen.py /usr/local/bin/fwgen
-    cp restore-fw.sh /usr/local/bin/restore-fw
-    ln -s /usr/local/bin/restore-fw /etc/network/if-pre-up.d/restore-fw
+    cp bin/fwgen /usr/local/bin/fwgen
+    cp sbin/restore-fw /usr/local/sbin/restore-fw
+    ln -s /usr/local/sbin/restore-fw /etc/network/if-pre-up.d/restore-fw
 
 # Usage
-Edit `/etc/fwgen/config.yml`. Look at the [example configuration](src/config.yml.example) for guidance.
+Edit `/etc/fwgen/config.yml`. Look at the [example configuration](etc/config.yml.example) for guidance.
 
 To generate the new ruleset:
 
