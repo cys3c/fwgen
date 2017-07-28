@@ -255,9 +255,10 @@ class FwGen(object):
         if family:
             families = [family]
 
+        rules = []
+        rules.extend(self._get_policy_rules(reset=True))
+
         for family_ in families:
-            rules = []
-            rules.extend(self._get_policy_rules(reset=True))
             self._apply_rules(self._output_rules(rules), family_)
 
         # Reset ipsets after the rules are removed to ensure ipsets are not in use
