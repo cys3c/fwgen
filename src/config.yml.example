@@ -129,7 +129,9 @@
 #        INPUT:
 #          - -j ACCEPT
 #        FORWARD:
-#          - -j ACCEPT
+#          - -o %{WAN} -j ACCEPT
+#          - -o %{DMZ} -j ACCEPT
+#          - -j CUSTOM_REJECT
 #        OUTPUT:
 #          - -j ACCEPT
 #  WAN:
@@ -138,7 +140,7 @@
 #    rules:
 #      filter:
 #        FORWARD:
-#          - -4 -d ${web_server} -p tcp --dport 80 -j ACCEPT
+#          - -4 -o %{DMZ} -d ${web_server} -p tcp --dport 80 -j ACCEPT
 #        OUTPUT:
 #          - -j ACCEPT
 #      nat:
@@ -161,8 +163,5 @@
 #          - -j CUSTOM_REJECT
 #        OUTPUT:
 #          - -j ACCEPT
-#      nat:
-#        POSTROUTING:
-#          - -4 -j MASQUERADE
 
 # vim: ft=yaml
