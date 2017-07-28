@@ -4,46 +4,23 @@
 
 global:
   policy:
-    ip:
-      filter:
-        INPUT: DROP
-        FORWARD: DROP
-        OUTPUT: DROP
-    ip6:
-      filter:
-        INPUT: DROP
-        FORWARD: DROP
-        OUTPUT: DROP
+    filter:
+      INPUT: DROP
+      FORWARD: DROP
+      OUTPUT: DROP
   helper_chains:
-    ip:
-      filter:
-        CUSTOM_REJECT:
-          - -p tcp -j REJECT --reject-with tcp-reset
-          - -j REJECT
-    ip6:
-      filter:
-        CUSTOM_REJECT:
+    filter:
+      CUSTOM_REJECT:
           - -p tcp -j REJECT --reject-with tcp-reset
           - -j REJECT
   rules:
     default:
-      ip:
-        filter:
-          INPUT:
-            - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-            - -i lo -j ACCEPT
-          FORWARD:
-            - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-          OUTPUT:
-            - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-            - -o lo -j ACCEPT
-      ip6:
-        filter:
-          INPUT:
-            - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-            - -i lo -j ACCEPT
-          FORWARD:
-            - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-          OUTPUT:
-            - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-            - -o lo -j ACCEPT
+      filter:
+        INPUT:
+          - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+          - -i lo -j ACCEPT
+        FORWARD:
+          - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+        OUTPUT:
+          - -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+          - -o lo -j ACCEPT

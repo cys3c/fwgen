@@ -12,24 +12,19 @@ import yaml
 
 
 VERSION = '0.1.0'
-DEFAULT_CHAINS_IP = {
+DEFAULT_CHAINS = {
     'filter': ['INPUT', 'FORWARD', 'OUTPUT'],
     'nat': ['PREROUTING', 'INPUT', 'OUTPUT', 'POSTROUTING'],
     'mangle': ['PREROUTING', 'INPUT', 'FORWARD', 'OUTPUT', 'POSTROUTING'],
     'raw': ['PREROUTING', 'OUTPUT'],
     'security': ['INPUT', 'FORWARD', 'OUTPUT']
 }
-DEFAULT_CHAINS_IP6 = DEFAULT_CHAINS_IP
 
 
 class FwGen(object):
     def __init__(self, config):
         self.config = config
         self._ip_families = ['ip', 'ip6']
-        self._default_chains = {
-            'ip': DEFAULT_CHAINS_IP,
-            'ip6': DEFAULT_CHAINS_IP6
-        }
         etc = self._get_etc()
         self._restore_file = {
             'ip': b'%s/iptables.restore' % etc,
@@ -74,31 +69,28 @@ class FwGen(object):
                 for entry in params['entries']:
                     yield self._substitute_variables('add %s %s' % (ipset, entry))
 
-    def _get_policy_rules(self, family, reset=False):
-        for table, chains in self._default_chains[family].items():
+    def _get_policy_rules(self, reset=False):
+        for table, chains in DEFAULT_CHAINS.items():
             for chain in chains:
                 policy = 'ACCEPT'
 
                 if not reset:
                     try:
-                        policy = self.config['global']['policy'][family][table][chain]
+                        policy = self.config['global']['policy'][table][chain]
                     except KeyError:
                         pass
 
                 yield (table, ':%s %s' % (chain, policy))
 
-    def _get_zone_rules(self, family):
+    def _get_zone_rules(self):
         for zone, params in self.config.get('zones', {}).items():
-            if 'rules' not in params:
-                continue
-
-            for table, chains in params['rules'].get(family, {}).items():
+            for table, chains in params.get('rules', {}).items():
                 for chain, chain_rules in chains.items():
                     zone_chain = '%s_%s' % (zone, chain)
                     for rule in chain_rules:
                         yield (table, '-A %s %s' % (zone_chain, rule))
 
-    def _get_global_rules(self, family):
+    def _get_global_rules(self):
         """
         Returns the rules from the global ruleset hooks in correct order
         """
@@ -106,17 +98,17 @@ class FwGen(object):
             rules = {}
 
             try:
-                rules = self.config['global']['rules'][ruleset][family]
+                rules = self.config['global']['rules'][ruleset]
             except KeyError:
                 pass
 
             yield from self._get_rules(rules)
 
-    def _get_helper_chains(self, family):
+    def _get_helper_chains(self):
         rules = {}
 
         try:
-            rules = self.config['global']['helper_chains'][family]
+            rules = self.config['global']['helper_chains']
         except KeyError:
             pass
 
@@ -137,12 +129,9 @@ class FwGen(object):
     def _get_new_chain_rule(table, chain):
         return (table, ':%s -' % chain)
 
-    def _get_zone_dispatchers(self, family):
+    def _get_zone_dispatchers(self):
         for zone, params in self.config.get('zones', {}).items():
-            if 'rules' not in params:
-                continue
-
-            for table, chains in params['rules'].get(family, {}).items():
+            for table, chains in params.get('rules', {}).items():
                 for chain in chains:
                     dispatcher_chain = '%s_%s' % (zone, chain)
                     yield self._get_new_chain_rule(table, dispatcher_chain)
@@ -183,8 +172,8 @@ class FwGen(object):
         rule = self._substitute_variables(rule)
         yield from self._expand_zones(rule)
 
-    def _output_rules(self, rules, family):
-        for table in self._default_chains[family]:
+    def _output_rules(self, rules):
+        for table in DEFAULT_CHAINS:
             yield '*%s' % table
 
             for rule_table, rule in rules:
@@ -234,14 +223,15 @@ class FwGen(object):
         # Apply ipsets first to ensure they exist when the rules are applied
         self._apply_ipsets(self._output_ipsets())
 
+        rules = []
+        rules.extend(self._get_policy_rules())
+        rules.extend(self._get_helper_chains())
+        rules.extend(self._get_global_rules())
+        rules.extend(self._get_zone_dispatchers())
+        rules.extend(self._get_zone_rules())
+
         for family in self._ip_families:
-            rules = []
-            rules.extend(self._get_policy_rules(family))
-            rules.extend(self._get_helper_chains(family))
-            rules.extend(self._get_global_rules(family))
-            rules.extend(self._get_zone_dispatchers(family))
-            rules.extend(self._get_zone_rules(family))
-            self._apply_rules(self._output_rules(rules, family), family)
+            self._apply_rules(self._output_rules(rules), family)
 
     def commit(self):
         self.apply()
@@ -267,8 +257,8 @@ class FwGen(object):
 
         for family_ in families:
             rules = []
-            rules.extend(self._get_policy_rules(family_, reset=True))
-            self._apply_rules(self._output_rules(rules, family_), family_)
+            rules.extend(self._get_policy_rules(reset=True))
+            self._apply_rules(self._output_rules(rules), family_)
 
         # Reset ipsets after the rules are removed to ensure ipsets are not in use
         self._apply_ipsets(self._output_ipsets(reset=True))
