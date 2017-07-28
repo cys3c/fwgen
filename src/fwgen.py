@@ -11,7 +11,7 @@ from collections import OrderedDict
 import yaml
 
 
-VERSION = '0.2.0'
+VERSION = '0.2.1'
 DEFAULT_CHAINS = {
     'filter': ['INPUT', 'FORWARD', 'OUTPUT'],
     'nat': ['PREROUTING', 'INPUT', 'OUTPUT', 'POSTROUTING'],
