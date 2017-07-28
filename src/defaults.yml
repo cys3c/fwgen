@@ -11,8 +11,8 @@ global:
   helper_chains:
     filter:
       CUSTOM_REJECT:
-          - -p tcp -j REJECT --reject-with tcp-reset
-          - -j REJECT
+        - -p tcp -j REJECT --reject-with tcp-reset
+        - -j REJECT
   rules:
     default:
       filter:
