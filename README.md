@@ -35,7 +35,7 @@ Put the files someplace logical. fwgen by default looks in `/etc/fwgen/` for con
     ln -s /usr/local/bin/restore-fw /etc/network/if-pre-up.d/restore-fw
 
 # Usage
-Edit `/etc/fwgen/config.yml`. Look at the example configuration for guidance.
+Edit `/etc/fwgen/config.yml`. Look at the [example configuration](src/config.yml.example) for guidance.
 
 To generate the new ruleset:
 
