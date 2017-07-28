@@ -19,6 +19,8 @@
 #    entries:
 #      - fd12:3456:789a:1::/64
 #      - fd12:3456:789a:2::/64
+#  # If you add your inet and inet6 family sets to a list:set type of set
+#  # you can use this set for both IPv4 and IPv6 rules, simplifying the ruleset.
 #  servers:
 #    type: list:set
 #    entries:
